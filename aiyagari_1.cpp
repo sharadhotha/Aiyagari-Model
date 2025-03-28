@@ -1,92 +1,143 @@
+///////// Descrete set for possible Assets and possible Incomes
+
+////////////////////////////////////////////////////// Block 1 //////////////////////////////////////////////////////
 #include <iostream>
 #include <vector>
 #include <cmath>
 #include <algorithm>
+#include <numeric>
 
 using namespace std;
 
-// Model parameters
-const double beta = 0.96;   // Discount factor
-const double alpha = 0.36;  // Capital share
-const double delta = 0.08;  // Depreciation rate
-const double sigma = 2.0;   // CRRA coefficient
-const int grid_size = 100;  // Number of asset grid points
-const int income_states = 2;// Number of income states
-const double rho = 0.9;     // Persistence of income shocks
-const double sigma_e = 0.1; // Std. dev. of shocks
-const int max_iter = 1000;  // Maximum iterations
-const double tol = 1e-6;    // Convergence tolerance
-
-// Utility function (CRRA)
-double utility(double c) {
-    return (sigma == 1) ? log(c) : (pow(c, 1 - sigma) - 1) / (1 - sigma);
+// Utility function
+double utility(double c, double sigma) {
+    if (c <= 0) return -1e10; // penalize infeasible consumption
+    if (sigma == 1.0) return log(c);
+    return pow(c, 1.0 - sigma) / (1.0 - sigma);
 }
 
-// Solve household problem using Value Function Iteration
-void solve_value_function(vector<vector<double>> &V, vector<vector<int>> &policy, vector<double> &asset_grid, vector<double> &income_grid, double r, double w) {
-    vector<vector<double>> V_new = V;
-    double diff;
-    int iter = 0;
 
-    do {
-        diff = 0.0;
-        for (int i = 0; i < income_states; i++) {
-            for (int j = 0; j < grid_size; j++) {
-                double best_value = -1e9;
-                int best_choice = 0;
-                double a = asset_grid[j];
-                double y = income_grid[i] * w;
-                for (int k = 0; k < grid_size; k++) {
-                    double a_next = asset_grid[k];
-                    double c = (1 + r) * a + y - a_next;
-                    if (c > 0) {
-                        double val = utility(c) + beta * V[i][k];
-                        if (val > best_value) {
-                            best_value = val;
-                            best_choice = k;
-                        }
+////////////////////////////////////////////////////// Block 2 //////////////////////////////////////////////////////
+const int na = 500;               // number of asset grid points
+const int ny = 2;                 // number of income states
+const double beta = 0.96;         // discount factor
+const double sigma = 2.0;         // risk aversion
+const double r = 0.04;            // interest rate
+const double a_min = 0.0;         // borrowing constraint
+const double a_max = 50.0;        // max asset
+const double tol = 1e-6;          // tolerance
+const int max_iter = 1000;        // max iterations
+
+vector<double> agrid(na);         // asset grid
+
+void create_asset_grid() {
+    for (int i = 0; i < na; ++i) {
+        agrid[i] = a_min + i * (a_max - a_min) / (na - 1);
+    }
+}
+
+
+////////////////////////////////////////////////////// Block 3 //////////////////////////////////////////////////////
+vector<double> ygrid = {0.5, 1.5};
+vector<vector<double> > P = {{0.9, 0.1}, {0.1, 0.9}};
+
+
+
+
+
+////////////////////////////////////////////////////// Block 4 //////////////////////////////////////////////////////
+vector<vector<double> > V(ny, vector<double>(na, 0.0));
+vector<vector<int> > policy_idx(ny, vector<int>(na, 0));
+
+void solve_value_function() {
+    for (int it = 0; it < max_iter; ++it) {
+        double max_diff = 0.0;
+        vector<vector<double> > V_new = V;
+
+        for (int iy = 0; iy < ny; ++iy) {
+            for (int ia = 0; ia < na; ++ia) {
+                double max_val = -1e10;
+                int best_a_idx = 0;
+
+                for (int ja = 0; ja < na; ++ja) {
+                    double c = ygrid[iy] + (1 + r) * agrid[ia] - agrid[ja];
+                    double u = utility(c, sigma);
+
+                    double EV = 0.0;
+                    for (int jy = 0; jy < ny; ++jy) {
+                        EV += P[iy][jy] * V[jy][ja];
+                    }
+
+                    double val = u + beta * EV;
+
+                    if (val > max_val) {
+                        max_val = val;
+                        best_a_idx = ja;
                     }
                 }
-                V_new[i][j] = best_value;
-                policy[i][j] = best_choice;
-                diff = max(diff, fabs(V_new[i][j] - V[i][j]));
+
+                V_new[iy][ia] = max_val;
+                policy_idx[iy][ia] = best_a_idx;
+
+                max_diff = max(max_diff, fabs(V_new[iy][ia] - V[iy][ia]));
             }
         }
+
         V = V_new;
-        iter++;
-    } while (diff > tol && iter < max_iter);
+        if (max_diff < tol) break;
+    }
 }
 
-int main() {
-    // Asset grid
-    vector<double> asset_grid(grid_size);
-    for (int i = 0; i < grid_size; i++) {
-        asset_grid[i] = i * 0.1;
-    }
 
-    // Income states (simplified binary process)
-    vector<double> income_grid = {0.5, 1.5};
 
-    // Initialize value function and policy function
-    vector<vector<double>> V(income_states, vector<double>(grid_size, 0.0));
-    vector<vector<int>> policy(income_states, vector<int>(grid_size, 0));
-    
-    // Interest rate and wage from firm’s problem (assume fixed for now)
-    double r = 0.04;
-    double w = 1.0;
-    
-    // Solve the household’s problem
-    solve_value_function(V, policy, asset_grid, income_grid, r, w);
-    
-    // Print policy function (optimal asset choice)
-    cout << "Optimal savings policy (next period asset choice):" << endl;
-    for (int i = 0; i < income_states; i++) {
-        cout << "Income state " << i << ": ";
-        for (int j = 0; j < grid_size; j += 10) { // Print every 10th asset point
-            cout << asset_grid[policy[i][j]] << " ";
+////////////////////////////////////////////////////// Block 5 //////////////////////////////////////////////////////
+vector<vector<double> > stationary_dist(ny, vector<double>(na, 0.0));
+
+void compute_stationary_distribution() {
+    // Initial guess: equal probability
+    for (int iy = 0; iy < ny; ++iy)
+        for (int ia = 0; ia < na; ++ia)
+            stationary_dist[iy][ia] = 1.0 / (ny * na);
+
+    for (int iter = 0; iter < 1000; ++iter) {
+        vector<vector<double> > new_dist(ny, vector<double>(na, 0.0));
+
+        for (int iy = 0; iy < ny; ++iy) {
+            for (int ia = 0; ia < na; ++ia) {
+                int ja = policy_idx[iy][ia];
+                for (int jy = 0; jy < ny; ++jy) {
+                    new_dist[jy][ja] += stationary_dist[iy][ia] * P[iy][jy];
+                }
+            }
         }
-        cout << endl;
+
+        stationary_dist = new_dist;
     }
-    
+}
+
+
+
+////////////////////////////////////////////////////// Block 6 //////////////////////////////////////////////////////
+double aggregate_capital() {
+    double total = 0.0;
+    for (int iy = 0; iy < ny; ++iy) {
+        for (int ia = 0; ia < na; ++ia) {
+            total += stationary_dist[iy][ia] * agrid[policy_idx[iy][ia]];
+        }
+    }
+    return total;
+}
+
+
+////////////////////////////////////////////////////// Block 6 //////////////////////////////////////////////////////
+int main() {
+    create_asset_grid();
+    solve_value_function();
+    compute_stationary_distribution();
+
+    double K = aggregate_capital();
+    cout << "Aggregate capital: " << K << endl;
+
     return 0;
 }
+
