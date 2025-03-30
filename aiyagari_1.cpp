@@ -1,4 +1,4 @@
-///////// Descrete set for possible Assets and possible Incomes
+///////// Descrete set of possible Assets and possible Incomes
 
 ////////////////////////////////////////////////////// Block 1 //////////////////////////////////////////////////////
 #include <iostream>
@@ -6,6 +6,8 @@
 #include <cmath>
 #include <algorithm>
 #include <numeric>
+#include <fstream>
+
 
 using namespace std;
 
@@ -18,54 +20,57 @@ double utility(double c, double sigma) {
 
 
 ////////////////////////////////////////////////////// Block 2 //////////////////////////////////////////////////////
-const int na = 500;               // number of asset grid points
-const int ny = 2;                 // number of income states
-const double beta = 0.96;         // discount factor
-const double sigma = 2.0;         // risk aversion
-const double r = 0.04;            // interest rate
-const double a_min = 0.0;         // borrowing constraint
-const double a_max = 50.0;        // max asset
-const double tol = 1e-6;          // tolerance
-const int max_iter = 1000;        // max iterations
+const int no_of_assets = 500;                   // number of asset grid points
+const int no_of_incomes = 2;                    // number of income states
+const double beta = 0.96;                       // discount factor
+const double sigma = 2.0;                       // risk aversion 
+double r = 0.04;                                // interest rate
+const double asset_min = 0.0;                   // borrowing constraint
+const double asset_max = 50.0;                  // max asset
+const double tolerence = 1e-6;                  // tolerance
+const int max_iterations = 1000;                // max iterations
 
-vector<double> agrid(na);         // asset grid
+const double alpha = 0.36;                      // capital share
+const double depreciation = 0.08;               // depreciation
+
+vector<double> assets_grid(no_of_assets);       // asset grid
 
 void create_asset_grid() {
-    for (int i = 0; i < na; ++i) {
-        agrid[i] = a_min + i * (a_max - a_min) / (na - 1);
+    for (int i = 0; i < no_of_assets; ++i) {
+        assets_grid[i] = asset_min + i * (asset_max - asset_min) / (no_of_assets - 1);
     }
 }
 
 
 ////////////////////////////////////////////////////// Block 3 //////////////////////////////////////////////////////
-vector<double> ygrid = {0.5, 1.5};
-vector<vector<double> > P = {{0.9, 0.1}, {0.1, 0.9}};
+vector<double> incomes_set = {0.5, 1.5};
+vector<vector<double> > transition_matrix = {{0.9, 0.1}, {0.1, 0.9}};
 
 
 
 
 
 ////////////////////////////////////////////////////// Block 4 //////////////////////////////////////////////////////
-vector<vector<double> > V(ny, vector<double>(na, 0.0));
-vector<vector<int> > policy_idx(ny, vector<int>(na, 0));
+vector<vector<double> > Value_func(no_of_incomes, vector<double>(no_of_assets, 0.0));
+vector<vector<int> > policy_idx(no_of_incomes, vector<int>(no_of_assets, 0));
 
 void solve_value_function() {
-    for (int it = 0; it < max_iter; ++it) {
+    for (int iteration = 0; iteration < max_iterations; ++iteration) {
         double max_diff = 0.0;
-        vector<vector<double> > V_new = V;
+        vector<vector<double> > Value_func_new = Value_func;
 
-        for (int iy = 0; iy < ny; ++iy) {
-            for (int ia = 0; ia < na; ++ia) {
+        for (int iy = 0; iy < no_of_incomes; ++iy) {
+            for (int ia = 0; ia < no_of_assets; ++ia) {
                 double max_val = -1e10;
                 int best_a_idx = 0;
 
-                for (int ja = 0; ja < na; ++ja) {
-                    double c = ygrid[iy] + (1 + r) * agrid[ia] - agrid[ja];
+                for (int ja = 0; ja < no_of_assets; ++ja) {
+                    double c = incomes_set[iy] + (1 + r) * assets_grid[ia] - assets_grid[ja];
                     double u = utility(c, sigma);
 
                     double EV = 0.0;
-                    for (int jy = 0; jy < ny; ++jy) {
-                        EV += P[iy][jy] * V[jy][ja];
+                    for (int jy = 0; jy < no_of_incomes; ++jy) {
+                        EV += transition_matrix[iy][jy] * Value_func[jy][ja];
                     }
 
                     double val = u + beta * EV;
@@ -76,37 +81,37 @@ void solve_value_function() {
                     }
                 }
 
-                V_new[iy][ia] = max_val;
+                Value_func_new[iy][ia] = max_val;
                 policy_idx[iy][ia] = best_a_idx;
 
-                max_diff = max(max_diff, fabs(V_new[iy][ia] - V[iy][ia]));
+                max_diff = max(max_diff, fabs(Value_func_new[iy][ia] - Value_func[iy][ia]));
             }
         }
 
-        V = V_new;
-        if (max_diff < tol) break;
+        Value_func = Value_func_new;
+        if (max_diff < tolerence) break;
     }
 }
 
 
 
 ////////////////////////////////////////////////////// Block 5 //////////////////////////////////////////////////////
-vector<vector<double> > stationary_dist(ny, vector<double>(na, 0.0));
+vector<vector<double> > stationary_dist(no_of_incomes, vector<double>(no_of_assets, 0.0));
 
 void compute_stationary_distribution() {
     // Initial guess: equal probability
-    for (int iy = 0; iy < ny; ++iy)
-        for (int ia = 0; ia < na; ++ia)
-            stationary_dist[iy][ia] = 1.0 / (ny * na);
+    for (int iy = 0; iy < no_of_incomes; ++iy)
+        for (int ia = 0; ia < no_of_assets; ++ia)
+            stationary_dist[iy][ia] = 1.0 / (no_of_incomes * no_of_assets);
 
     for (int iter = 0; iter < 1000; ++iter) {
-        vector<vector<double> > new_dist(ny, vector<double>(na, 0.0));
+        vector<vector<double> > new_dist(no_of_incomes, vector<double>(no_of_assets, 0.0));
 
-        for (int iy = 0; iy < ny; ++iy) {
-            for (int ia = 0; ia < na; ++ia) {
+        for (int iy = 0; iy < no_of_incomes; ++iy) {
+            for (int ia = 0; ia < no_of_assets; ++ia) {
                 int ja = policy_idx[iy][ia];
-                for (int jy = 0; jy < ny; ++jy) {
-                    new_dist[jy][ja] += stationary_dist[iy][ia] * P[iy][jy];
+                for (int jy = 0; jy < no_of_incomes; ++jy) {
+                    new_dist[jy][ja] += stationary_dist[iy][ia] * transition_matrix[iy][jy];
                 }
             }
         }
@@ -120,24 +125,84 @@ void compute_stationary_distribution() {
 ////////////////////////////////////////////////////// Block 6 //////////////////////////////////////////////////////
 double aggregate_capital() {
     double total = 0.0;
-    for (int iy = 0; iy < ny; ++iy) {
-        for (int ia = 0; ia < na; ++ia) {
-            total += stationary_dist[iy][ia] * agrid[policy_idx[iy][ia]];
+    for (int iy = 0; iy < no_of_incomes; ++iy) {
+        for (int ia = 0; ia < no_of_assets; ++ia) {
+            total += stationary_dist[iy][ia] * assets_grid[policy_idx[iy][ia]];
         }
     }
     return total;
 }
 
+////////////////////////////////////////////////////// Block 8 //////////////////////////////////////////////////////
+double household_aggregate_capital(double r) {
+    // Update global r
+    ::r = r;
 
-////////////////////////////////////////////////////// Block 6 //////////////////////////////////////////////////////
-int main() {
-    create_asset_grid();
     solve_value_function();
     compute_stationary_distribution();
+    return aggregate_capital();
+}
 
-    double K = aggregate_capital();
-    cout << "Aggregate capital: " << K << endl;
+////////////////////////////////////////////////////// Block 9 //////////////////////////////////////////////////////
+void solve_general_equilibrium() {
+    double r_low = 0.005;
+    double r_high = 0.4;
+    double tol_r = 1e-4;
+    double K_supply, K_demand;
+
+    while (r_high - r_low > tol_r) {
+        double r_mid = 0.5 * (r_low + r_high);
+        r = r_mid;
+
+        K_supply = household_aggregate_capital(r_mid);
+        K_demand = pow((alpha / (r_mid + depreciation)), 1.0 / (1.0 - alpha));
+
+        if (K_supply > K_demand) {
+            r_high = r_mid;
+        } else {
+            r_low = r_mid;
+        }
+    }
+
+    r = 0.5 * (r_low + r_high);
+    K_supply = household_aggregate_capital(r);
+
+    cout << "Equilibrium interest rate r: " << r << endl;
+    cout << "Equilibrium capital: " << K_supply << endl;
+}
+
+////////////////////////////////////////////////////// Block 10 //////////////////////////////////////////////////////
+void generate_supply_demand_data(const string& filename) {
+    ofstream file(filename);
+    file << "r,K_supply,K_demand\n";
+
+    for (double r_test = 0.005; r_test <= 0.04; r_test += 0.001) {
+        double K_supply = household_aggregate_capital(r_test);
+        double K_demand = pow(alpha / (r_test + depreciation), 1.0 / (1.0 - alpha));
+        file << r_test << "," << K_supply << "," << K_demand << "\n";
+    }
+
+    file.close();
+    cout << "Saved supply/demand data to: " << filename << endl;
+}
+
+
+
+
+
+////////////////////////////////////////////////////// Block 7 //////////////////////////////////////////////////////
+int main() {
+    create_asset_grid();
+    solve_general_equilibrium();
+    //generate_supply_demand_data("supply_demand.csv");
 
     return 0;
 }
+
+
+// g++ -std=c++11 aiyagari_1.cpp -o aiyagari_1
+// ./aiyagari_1
+// g++ -std=c++11 aiyagari_1.cpp -o aiyagari_1 \
+  -I/opt/homebrew/include -L/opt/homebrew/lib \
+  -lboost_iostreams -lboost_system
 
