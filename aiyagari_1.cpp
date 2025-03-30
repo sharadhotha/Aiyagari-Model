@@ -2,11 +2,14 @@
 
 ////////////////////////////////////////////////////// Block 1 //////////////////////////////////////////////////////
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <cmath>
 #include <algorithm>
 #include <numeric>
 #include <fstream>
+#include <cstdlib>
+#include <string>
 
 
 using namespace std;
@@ -143,7 +146,7 @@ double household_aggregate_capital(double r) {
     return aggregate_capital();
 }
 
-////////////////////////////////////////////////////// Block 9 //////////////////////////////////////////////////////
+////////////////////////////////////////////////////// Block 9 ////////////////////////////////////////////////////// Solves for r
 void solve_general_equilibrium() {
     double r_low = 0.005;
     double r_high = 0.4;
@@ -171,7 +174,7 @@ void solve_general_equilibrium() {
     cout << "Equilibrium capital: " << K_supply << endl;
 }
 
-////////////////////////////////////////////////////// Block 10 //////////////////////////////////////////////////////
+////////////////////////////////////////////////////// Block 10 ////////////////////////////////////////////////////// Capital vs r
 void generate_supply_demand_data(const string& filename) {
     ofstream file(filename);
     file << "r,K_supply,K_demand\n";
@@ -186,7 +189,72 @@ void generate_supply_demand_data(const string& filename) {
     cout << "Saved supply/demand data to: " << filename << endl;
 }
 
+void generatePlot(const std::string& csvFileName) {
+    // Create the subfolder if it doesn't exist
+    system("mkdir -p plots"); // "mkdir -p" ensures the folder is created
 
+    // Create the Gnuplot command string
+    std::string gnuplotCommand = "gnuplot -e \"set terminal png size 800,600; "
+                                 "set output 'plots/plot.png'; "
+                                 "set title 'CSV Data Plot'; "
+                                 "set xlabel 'Interest Rate (r)'; "
+                                 "set ylabel 'Capital (K)'; "
+                                 "set datafile separator ','; "
+                                 "plot '" + csvFileName + "' using 1:2 with linespoints title 'K_{Supply}', "
+                                 "'" + csvFileName + "' using 1:3 with linespoints title 'K_{Demand}'\"";
+
+    // Execute the Gnuplot command
+    int result = system(gnuplotCommand.c_str());
+    if (result != 0) {
+        std::cerr << "Error executing Gnuplot!" << std::endl;
+        return;
+    }
+
+    std::cout << "Plot saved as 'plots/r_K_plot.png'" << std::endl;
+}
+
+
+
+////////////////////////////////////////////////////// Block 11 ////////////////////////////////////////////////////// Wealth Dist
+
+void export_wealth_distribution(const string& filename) {
+    ofstream file(filename);
+    file << "asset,density\n";
+
+    for (int ia = 0; ia < no_of_assets; ++ia) {
+        double density = 0.0;
+        for (int iy = 0; iy < no_of_incomes; ++iy) {
+            density += stationary_dist[iy][ia];
+        }
+        file << fixed << setprecision(6) << assets_grid[ia] << "," << density << "\n";
+    }
+
+    file.close();
+    cout << "Wealth distribution saved to: " << filename << endl;
+}
+
+void generateDensityPlot(const std::string& csvFileName) {
+    // Create the subfolder if it doesn't exist
+    system("mkdir -p plots"); // "mkdir -p" ensures the folder is created
+
+    // Create the Gnuplot command string for plotting a density function
+    std::string gnuplotCommand = "gnuplot -e \"set terminal png size 800,600; "
+                                 "set output 'plots/density_plot.png'; "
+                                 "set title 'Wealth Distribution'; "
+                                 "set xlabel 'Wealth'; "
+                                 "set ylabel 'Density'; "
+                                 "set datafile separator ','; "
+                                 "plot '" + csvFileName + "' using 1:2 with lines title 'Density'\"";
+
+    // Execute the Gnuplot command
+    int result = system(gnuplotCommand.c_str());
+    if (result != 0) {
+        std::cerr << "Error executing Gnuplot!" << std::endl;
+        return;
+    }
+
+    std::cout << "Density plot saved as 'plots/wealth_dist.png'" << std::endl;
+}
 
 
 
@@ -194,7 +262,10 @@ void generate_supply_demand_data(const string& filename) {
 int main() {
     create_asset_grid();
     solve_general_equilibrium();
-    //generate_supply_demand_data("supply_demand.csv");
+    generate_supply_demand_data("output/supply_demand.csv");
+    generatePlot("output/supply_demand.csv");
+    export_wealth_distribution("output/wealth_distribution.csv");
+    generateDensityPlot("output/wealth_distribution.csv");
 
     return 0;
 }
