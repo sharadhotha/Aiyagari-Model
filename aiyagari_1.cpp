@@ -14,7 +14,7 @@
 
 using namespace std;
 
-// Utility function
+// CRRA Utility function
 double utility(double c, double sigma) {
     if (c <= 0) return -1e10; // penalize infeasible consumption
     if (sigma == 1.0) return log(c);
@@ -23,13 +23,13 @@ double utility(double c, double sigma) {
 
 
 ////////////////////////////////////////////////////// Block 2 //////////////////////////////////////////////////////
-const int no_of_assets = 500;                   // number of asset grid points
+const int no_of_assets = 1000;                   // number of asset grid points
 const int no_of_incomes = 2;                    // number of income states
 const double beta = 0.96;                       // discount factor
 const double sigma = 2.0;                       // risk aversion 
 double r = 0.04;                                // interest rate
 const double asset_min = 0.0;                   // borrowing constraint
-const double asset_max = 50.0;                  // max asset
+const double asset_max = 5000.0;                  // max asset
 const double tolerence = 1e-6;                  // tolerance
 const int max_iterations = 1000;                // max iterations
 
@@ -149,7 +149,7 @@ double household_aggregate_capital(double r) {
 ////////////////////////////////////////////////////// Block 9 ////////////////////////////////////////////////////// Solves for r
 void solve_general_equilibrium() {
     double r_low = 0.005;
-    double r_high = 0.4;
+    double r_high = 0.04;
     double tol_r = 1e-4;
     double K_supply, K_demand;
 
@@ -258,7 +258,7 @@ void generateDensityPlot(const std::string& csvFileName) {
 
 
 
-////////////////////////////////////////////////////// Block 7 //////////////////////////////////////////////////////
+////////////////////////////////////////////////////// Block 12 //////////////////////////////////////////////////////
 int main() {
     create_asset_grid();
     solve_general_equilibrium();
