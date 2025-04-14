@@ -172,3 +172,7 @@ int main() {
 
     return 0;
 }
+
+
+// g++ -std=c++11 aiyagari_oop.cpp -o aiyagari_oop
+// ./aiyagari_oop

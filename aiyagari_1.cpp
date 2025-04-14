@@ -23,7 +23,7 @@ double utility(double c, double sigma) {
 
 
 ////////////////////////////////////////////////////// Block 2 //////////////////////////////////////////////////////
-const int no_of_assets = 1000;                   // number of asset grid points
+const int no_of_assets = 500;                   // number of asset grid points
 const int no_of_incomes = 2;                    // number of income states
 const double beta = 0.96;                       // discount factor
 const double sigma = 2.0;                       // risk aversion 
@@ -46,6 +46,8 @@ void create_asset_grid() {
 
 
 ////////////////////////////////////////////////////// Block 3 //////////////////////////////////////////////////////
+// tauchen
+
 vector<double> incomes_set = {0.5, 1.5};
 vector<vector<double> > transition_matrix = {{0.9, 0.1}, {0.1, 0.9}};
 
